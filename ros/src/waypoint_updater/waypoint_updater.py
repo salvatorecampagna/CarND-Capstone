@@ -24,10 +24,9 @@ as well as to verify your TL classifier.
 TODO (for Yousuf and Aaron): Stopline location for each traffic light.
 '''
 
-
-LOOKAHEAD_WPS = 200 # Number of waypoints we will publish. You can change this number
-RED_LIGHT_MIN_DIST = 3.0
-AMPLIFICATION_FACTOR = 4
+LOOKAHEAD_WPS = 50 # Number of waypoints we will publish. You can change this number
+RED_LIGHT_MIN_DIST = 0.0
+AMPLIFICATION_FACTOR = 1
 
 class WaypointUpdater(object):
     def __init__(self):
@@ -46,8 +45,8 @@ class WaypointUpdater(object):
         self.num_waypoints = None
         self.current_pose = None
         self.red_light_waypoint_idx = -1
-        self.callback_time = rospy.get_time()
-        self.initial_velocity = 0.0
+	self.callback_time = rospy.get_time()
+	self.initial_velocity = 5.0
 
         # Enter loop to process topic messages
         self.loop()
@@ -60,12 +59,16 @@ class WaypointUpdater(object):
         @return: None
         '''
 
-        
-        rate = rospy.Rate(50) # 50Hz
+        rate = rospy.Rate(50) # 10Hz
         while not rospy.is_shutdown():
-            rospy.loginfo("info: **************************************************")
+	    rospy.loginfo("info: ")
+	    rospy.loginfo("info: ")
+	    rospy.loginfo("info: ")
+	    rospy.loginfo("info: **************************************************")
+	    rospy.loginfo("info: **************************************************")
+	    rospy.loginfo("info: **************************************************")
             if self.saved_base_waypoints is None or self.current_pose is None:
-                rospy.loginfo("info: saved_base_waypoints or current_pose is None")
+		rospy.loginfo("info: saved_base_waypoints or current_pose is None")
                 continue
 
             self.publish_new_trajectory()
@@ -78,7 +81,7 @@ class WaypointUpdater(object):
         '''
         self.saved_base_waypoints = msg.waypoints
         self.num_waypoints = len(msg.waypoints)
-        self.initial_velocity = self.saved_base_waypoints[0].twist.twist.linear.x
+	#self.initial_velocity = self.saved_base_waypoints[0].twist.twist.linear.x
 
 
     def pose_cb(self, msg):
@@ -92,10 +95,9 @@ class WaypointUpdater(object):
         '''
         Message Type: Int32
         '''
-        self.red_light_waypoint_idx = msg.data
-        self.callback_time = rospy.get_time()
-        rospy.loginfo("info: red light callback with index: {}".format(self.red_light_waypoint_idx))
-
+        self.red_light_waypoint_idx = msg.data-10
+	self.callback_time = rospy.get_time()
+	rospy.loginfo("info: red light callback with index: {}".format(self.red_light_waypoint_idx))
 
     def obstacle_cb(self, msg):
         '''
@@ -194,10 +196,13 @@ class WaypointUpdater(object):
         vel = 0.0
 
         if d > RED_LIGHT_MIN_DIST:
-            vel = (d - RED_LIGHT_MIN_DIST) * (car_vel ** (1-self.max_deceleration))
-
+            #vel = (d - RED_LIGHT_MIN_DIST) * (car_vel ** (1-self.max_deceleration))
+            vel = math.sqrt(2*d*self.max_deceleration)
         if vel < 1.0:
             vel = 0.0
+
+        if vel >self.initial_velocity:
+            vel = self.initial_velocity
 
         return vel
 
@@ -207,38 +212,51 @@ class WaypointUpdater(object):
         m = min(self.num_waypoints, car_index + LOOKAHEAD_WPS)
         #ahead_waypoints = deepcopy(self.saved_base_waypoints[car_index:m])
         ahead_waypoints = self.saved_base_waypoints[car_index:m]
+	rospy.loginfo("info: ahead waypoints num {}".format(len(ahead_waypoints)))
+	rospy.loginfo("info: ahead waypoints velocity {}".format(ahead_waypoints[0].twist.twist.linear.x))
+	
+	is_red_light_not_passed = rospy.get_time() - self.callback_time < 1 
+	is_red_light_ahead = False
 
-        rospy.loginfo("info: ahead waypoints num {}".format(len(ahead_waypoints)))
-        rospy.loginfo("info: ahead waypoints velocity {}".format(ahead_waypoints[0].twist.twist.linear.x))
+        if self.red_light_waypoint_idx > -1:
+	    rospy.loginfo("info: there is red light. {} -- {}".format(car_index, self.red_light_waypoint_idx))
+            if (self.red_light_waypoint_idx - car_index) > 0:
+                d = self.distance(self.saved_base_waypoints, car_index, self.red_light_waypoint_idx)
+                car_wp = self.saved_base_waypoints[car_index]
+		d2 = AMPLIFICATION_FACTOR * (car_wp.twist.twist.linear.x **2)/(2* self.max_deceleration)
+		rospy.loginfo("info: distance: {}, decelerated {}".format(d, d2))
+                if d>0:
+                    is_red_light_ahead = True
 
-        is_red_light_not_passed = rospy.get_time() - self.callback_time < 1
-        is_red_light_ahead = False
+            else:
+	        for i, waypoint in enumerate(ahead_waypoints):
+                    waypoint.twist.twist.linear.x = self.initial_velocity
+                    rospy.loginfo("info: velocity - {}".format(self.initial_velocity))
 
-        if (self.red_light_waypoint_idx - car_index) > 0:
-            car_wp = self.saved_base_waypoints[car_index]
-            d = self.distance(self.saved_base_waypoints, car_index, self.red_light_waypoint_idx)
-            d2 = AMPLIFICATION_FACTOR * (car_wp.twist.twist.linear.x ** self.max_deceleration)
-            rospy.loginfo("info: distance: {}, decelerated {}".format(d, d2))
-            if d < d2:
-                is_red_light_ahead = True
-                
-        if is_red_light_ahead and is_red_light_not_passed:
-            rospy.loginfo("info: red light is ahead")
-            for i, waypoint in enumerate(ahead_waypoints):
-                velocity = self.decelerate(car_index + i)
-                waypoint.twist.twist.linear.x = velocity
-                rospy.loginfo("info: velocity - {}".format(velocity))
+
+            if is_red_light_ahead and is_red_light_not_passed:
+		rospy.loginfo("info: red light is ahead")
+                for i, waypoint in enumerate(ahead_waypoints):
+                    velocity = self.decelerate(car_index + i)
+		    waypoint.twist.twist.linear.x = velocity
+		    rospy.loginfo("info: velocity - {}".format(velocity))
+#	    else:
+#		for i, waypoint in enumerate(ahead_waypoints):
+#                    waypoint.twist.twist.linear.x = self.initial_velocity
+#                    rospy.loginfo("info: velocity - {}".format(self.initial_velocity))
         else:
-            for i, waypoint in enumerate(ahead_waypoints):
+	    for i, waypoint in enumerate(ahead_waypoints):
                 waypoint.twist.twist.linear.x = self.initial_velocity
                 rospy.loginfo("info: velocity - {}".format(self.initial_velocity))
-    
+
+
+
         lane = Lane()
         lane.header.frame_id = '/world'
         lane.waypoints = ahead_waypoints
         self.final_waypoints_pub.publish(lane)
 
-        
+
 if __name__ == '__main__':
     try:
         WaypointUpdater()
