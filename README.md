@@ -7,11 +7,11 @@ This is our project submission for the code to run on Carla. The team breakdown 
 * Fabio Valerio Massoli	fabiovaleriomassoli@gmail.com
 * Laszlo Keri	laszlo.keri@protonmail.com
 * Pradeep Banavara pradeepbs@gmail.com (Team Lead)
-<h3>
-Our tasks and the accomplishments briefly
-</h3>
 
+Our tasks and the accomplishments briefly
+<h3>
 Salvatore Campagna worked on the dbw module
+</h3>
 
 The control module implements a **Drive-By-Wire (DBW)** system which is responsible
 for generating electronics controls driving the car. The DBW node is implemented
@@ -59,7 +59,9 @@ At this point the controller has computed the steering, throttle and brake comma
 which are returned by the `control` to the DBW node in order for each to be
 written on the specific topic by the respective publisher.
 
+<h3>
 Laszlo Keri implemented the MPC Controller
+</h3>
 
 We created an alterative MPC implementation to the PID based `twist_controller`. The MPC implementation uses a bit different architecture from the original project. In the original design the `waypoint_follower` component gets the `final_waypoints` and turns these into a `twist_cmd` that is exectued by the dbw node.
 
@@ -78,7 +80,9 @@ The cost optimization parameters are tuned so that the controller is stable up t
 
 The code is on the seperate `mpc` branch as it has dependencies from the term 2 mpc project that need to be installed and that are probably not part of the Carla enviroment (ipopt, cppad). The submission contains the PID based implementation.
 
-Tony worked on the tl_detector and the tl_classifier
+<h3>
+Yuan-Yao Huang worked on the tl_detector and the tl_classifier modules
+</h3>
 
 ### Traffic Light Detector
 
@@ -116,7 +120,6 @@ This node is finised with following step:
 
 At this point, the /traffic_waypoint topic starts to publish meaningful values. The others can move on to finalize the waypoint_updater node. The traning image can also be obtained by checking the distance between car and traffic light. We saved the images when traffic light is less then 100m ahead the car.
 
-Yuan-Yao Huang worked on the tl_detector and the tl_classifier modules
 
 #### tl_classifier.py
 
@@ -132,7 +135,9 @@ After the model is ready, we just do step 4. in tl_detector.py with the model pr
 
 In conclusion, the ssd_inception model works pretty good on traffic light classification and is able to publish reasonable value to the /traffic_waypoint topic.
 
+<h3>
 Fabio Valerio worked on the way point updater
+</h3>
 
 The waypoint_updater node is in charge of:
 
@@ -146,7 +151,9 @@ The knowledge of the presence of the red light comes from the tl detector node t
 
 Whenever a message is received from the /traffic_waypoint, the traffic_cb callback gets called and the id of the waypoint of the red light is saved.
 
+<h3>
 Pradeep Banavara worked on the traffic light classifier 
+</h3>
 
 I built the object detection model using the Tensorflow object detection API and using the RESNET 101 as the base model. I followed the instructions on Tensorflow object detection to train the model.
 I used the dataset from the rosbag dataset provided by Udacity. Used transfer learning to train the model on 10,000 iterations. Followed the steps as follows:
